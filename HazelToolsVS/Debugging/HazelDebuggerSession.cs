@@ -10,12 +10,6 @@ namespace HazelToolsVS.Debugging
 	internal class HazelDebuggerSession : SoftDebuggerSession
 	{
 		private bool m_IsAttached;
-		private MenuCommand m_AttachToHazelnutMenuItem;
-
-		/*internal HazelDebuggerSession(MenuCommand attachToHazelnutMenuItem)
-		{
-			m_AttachToHazelnutMenuItem = attachToHazelnutMenuItem;
-		}*/
 
 		protected override void OnRun(DebuggerStartInfo startInfo)
 		{
@@ -52,7 +46,7 @@ namespace HazelToolsVS.Debugging
 				return;
 			}
 
-			string message = "An error occured when trying to attach to Hazelnut. Please make sure that Hazelnut is running and that it's up-to-date.";
+			string message = "An error occured when trying to attach debugger. Please make sure that engine is running and that it's up-to-date.";
 			message += Environment.NewLine;
 			message += string.Format("Message: {0}", ex != null ? ex.Message : "No error message provided.");
 
