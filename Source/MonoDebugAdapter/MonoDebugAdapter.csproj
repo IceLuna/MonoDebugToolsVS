@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Mono debug adapter (Debug Adapter Protocol server for the Mono soft debugger).
+    Based on microsoft/vscode-mono-debug @ b58eb0fd3bade8f50e37dda1ff4c6d5b3e02b964 (MIT, see LICENSE.txt),
+    with fixes for Visual Studio's Debug Adapter Host (see README.md).
+    The output is packaged into the Eagle Debug Tools VSIX under "MonoDebugAdapter\".
+  -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>mono-debug</AssemblyName>
+    <RootNamespace>VSCodeDebug</RootNamespace>
+    <!-- Fixed output folder; EagleDebugTools.csproj picks the adapter up from here -->
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>bin\$(Configuration)\</OutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
+    <PackageReference Include="Mono.Cecil" Version="0.10.1" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugger.Soft\Mono.Debugger.Soft.csproj" />
+    <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugging\Mono.Debugging.csproj" />
+    <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugging.Soft\Mono.Debugging.Soft.csproj" />
+  </ItemGroup>
+
+</Project>

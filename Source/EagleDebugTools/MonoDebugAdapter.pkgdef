@@ -1,0 +1,24 @@
+;
+; Registers the bundled Mono debug adapter (MonoDebugAdapter\mono-debug.exe) as a
+; Visual Studio Debug Adapter Host engine.
+;
+; The GUID must match AttachDebuggerCommand.MonoDebugEngineGuid.
+;
+[$RootKey$\AD7Metrics\Engine\{C2086BEE-8FE8-462E-8D67-90F715C1B5DC}]
+
+; Use the Debug Adapter Host engine
+"CLSID"="{DAB324E9-7B35-454C-ACA8-F6BB0D5C8673}"
+"AlwaysLoadLocal"=dword:00000001
+"AddressBP"=dword:00000000
+"CallStackBP"=dword:00000000
+
+; Attaching goes through the "Attach to Eagle" command, not the Attach to Process dialog
+"Attach"=dword:00000000
+"Exceptions"=dword:00000000
+"ExceptionConditions"=dword:00000000
+
+; Shown in VS (Processes window, Call Stack "Language" column, ...)
+"Name"="Eagle Mono Debugger"
+"Language"="C#"
+
+"Adapter"="$PackageFolder$\MonoDebugAdapter\mono-debug.exe"

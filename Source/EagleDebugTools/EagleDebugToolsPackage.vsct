@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<CommandTable language="en-us" xmlns="http://schemas.microsoft.com/VisualStudio/2005-10-18/CommandTable">
+
+    <Include href="KnownImageIds.vsct" />
+
+    <Extern href="stdidcmd.h" />
+    <Extern href="vsshlids.h" />
+    <Extern href="VSDbgCmd.h" />
+    <Extern href="VsDebugGuids.h" />
+
+    <Commands package="guidEagleDebugToolsPackage">
+        <Groups>
+            <Group guid="guidEagleDebugToolsCmdSet" id="DebugMenuGroup" priority="0x0600">
+                <Parent guid="guidVSDebugGroup" id="IDM_DEBUG_MENU" />
+            </Group>
+        </Groups>
+
+        <Buttons>
+            <Button guid="guidEagleDebugToolsCmdSet" id="AttachToEagleCommandId" priority="0x0100" type="Button">
+                <Parent guid="guidEagleDebugToolsCmdSet" id="DebugMenuGroup" />
+                <Icon guid="ImageCatalogGuid" id="Play" />
+                <CommandFlag>DynamicVisibility</CommandFlag>
+                <CommandFlag>IconIsMoniker</CommandFlag>
+                <Strings>
+                    <ButtonText>Attach to Eagle</ButtonText>
+                </Strings>
+            </Button>
+        </Buttons>
+    </Commands>
+
+    <KeyBindings>
+        <KeyBinding guid="guidEagleDebugToolsCmdSet" id="AttachToEagleCommandId" editor="guidVSStd97" key1="VK_F7" mod1="Control Shift" />
+    </KeyBindings>
+
+    <!-- Only show the command when the open solution contains a C# project -->
+    <VisibilityConstraints>
+        <VisibilityItem guid="guidEagleDebugToolsCmdSet" id="AttachToEagleCommandId" context="guidUIContextHasCSharpProject" />
+    </VisibilityConstraints>
+
+    <Symbols>
+        <!-- Must match EagleDebugToolsPackage.PackageGuidString -->
+        <GuidSymbol name="guidEagleDebugToolsPackage" value="{453fd8e9-75c4-4b4f-a0c5-00003775f117}" />
+        <!-- Must match EagleDebugToolsPackage.UIContextHasCSharpProjectGuid -->
+        <GuidSymbol name="guidUIContextHasCSharpProject" value="{66529019-a7f6-4cf0-b694-55066c449bae}" />
+
+        <!-- Must match AttachDebuggerCommand.CommandSet / CommandId -->
+        <GuidSymbol name="guidEagleDebugToolsCmdSet" value="{0e894a9e-1804-46d1-a396-26e0e0a6f251}">
+            <IDSymbol name="DebugMenuGroup" value="0x1020" />
+            <IDSymbol name="AttachToEagleCommandId" value="0x0100" />
+        </GuidSymbol>
+    </Symbols>
+</CommandTable>

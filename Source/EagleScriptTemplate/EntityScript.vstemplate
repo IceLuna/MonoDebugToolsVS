@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<VSTemplate Version="3.0.0" Type="Item" xmlns="http://schemas.microsoft.com/developer/vstemplate/2005">
+  <TemplateData>
+    <Name>Eagle Entity Script</Name>
+    <Description>An empty C# script that derives from Eagle.Entity</Description>
+    <Icon>EagleScript.ico</Icon>
+    <TemplateID>9fe83c6e-96ae-48c6-8223-bf2b37328f19</TemplateID>
+    <ProjectType>CSharp</ProjectType>
+    <LanguageTag>CSharp</LanguageTag>
+    <NumberOfParentCategoriesToRollUp>1</NumberOfParentCategoriesToRollUp>
+    <DefaultName>EntityScript.cs</DefaultName>
+  </TemplateData>
+  <TemplateContent>
+    <ProjectItem ReplaceParameters="true">EntityScript.cs</ProjectItem>
+  </TemplateContent>
+</VSTemplate>

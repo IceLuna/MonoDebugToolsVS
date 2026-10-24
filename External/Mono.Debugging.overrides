@@ -1,0 +1,10 @@
+<Project>
+  <!--
+    Picked up automatically by External/debugger-libs (Mono.Debugging.settings looks for a file with this name
+    in the parent folders). The Mono debug adapter only needs the .NET Framework build of debugger-libs,
+    so skip the net6.0 build.
+  -->
+  <PropertyGroup>
+    <TargetFrameworks>net472</TargetFrameworks>
+  </PropertyGroup>
+</Project>
