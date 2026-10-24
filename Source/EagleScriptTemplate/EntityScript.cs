@@ -9,14 +9,14 @@ namespace $rootnamespace$
 		/// OnCreate is called once when the Entity that this script is attached to
 		/// is instantiated in the scene at runtime
 		/// </summary>
-		protected override void OnCreate()
+		public override void OnCreate()
 		{
 		}
 
 		/// <summary>
 		/// OnUpdate is called once every frame while this script is active in the scene
 		/// </summary>
-		protected override void OnUpdate(float deltaTime)
+		public override void OnUpdate(float deltaTime)
 		{
 		}
 	}
