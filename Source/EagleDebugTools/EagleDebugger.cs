@@ -149,7 +149,8 @@ namespace EagleDebugTools
 			{
 				VsShellUtilities.ShowMessageBox(m_Package,
 					"No Eagle game that can be debugged is running." + Environment.NewLine + Environment.NewLine +
-					"Start the game, then try again. Games can be debugged unless they were built with a Release build of Eagle.",
+					"Start the game, then try again. Games can be debugged if they were built with the \"Script debugging\" option " +
+					"(Eagle Editor: File > Build the game).",
 					"Attach to Eagle Game", OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
 				return;
 			}
@@ -197,7 +198,7 @@ namespace EagleDebugTools
 			}
 
 			if (!File.Exists(gameSymbols))
-				problems.Add("The game has no symbols for its scripts (" + gameSymbols + "), so breakpoints can't hit. Was it built with a Release build of Eagle?");
+				problems.Add("The game has no symbols for its scripts (" + gameSymbols + "), so breakpoints can't hit. Build the scripts, then the game with the \"Script debugging\" option.");
 			else if (File.Exists(projectSymbols) && !FilesEqual(gameSymbols, projectSymbols))
 				problems.Add("The game's scripts don't match the project's current build: the game was built before the scripts were last rebuilt. Rebuild the game.");
 

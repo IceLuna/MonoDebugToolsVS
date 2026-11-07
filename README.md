@@ -5,7 +5,7 @@ in your game's scripts while the Eagle Editor or a game build is running.
 
 It adds:
 * **F5 attaches to the Eagle Editor** when the startup project is an Eagle scripts project
-* **Debug > Attach to Eagle Game...**, which attaches to a running game (games built without `EG_RELEASE`)
+* **Debug > Attach to Eagle Game...**, which attaches to a running game (games built with the **Script debugging** option)
 * Script logs (`Eagle.Log()`) in Visual Studio's **Output** window, and a stop in the debugger when a script throws an exception
 * **Add > New Item > Eagle Entity Script**, an item template for a new `Eagle.Entity` script
 * **Tools > Options > Eagle Debug Tools**, the extension's settings
@@ -48,8 +48,10 @@ which it keeps locked while the project is open. Visual Studio attaches to the e
 When a script throws an exception, the debugger stops in `Eagle.RuntimeException.OnException`.
 
 ### Debugging a game
-Games can be debugged unless they were built with a Release build of Eagle (`EG_RELEASE`). Non-Release game builds
-also get the scripts' `.pdb` files, which the debugger needs.
+Games can be debugged if they were built with the **Script debugging** option: in the Eagle Editor, **File > Build the game**
+shows it before the build starts (off by default). Such builds also get the scripts' `.pdb` files,
+which the debugger needs. It's not recommended to publish them.
+For more accurate stepping, build the scripts in the Debug configuration before building the game.
 1. Start the game.
 2. Choose **Debug > Attach to Eagle Game...**. If exactly one game of the solution's project is running, it attaches to it;
    otherwise it lists the running games (the solution's project first) to pick from.
@@ -66,6 +68,7 @@ the extension warns if the scripts changed since they were last built, or if the
 
 Each running game picks its own free port and writes it to `%LOCALAPPDATA%\Eagle\Debugger\Games\Game-<ProcessId>.yaml`,
 locked while the game runs. Files left behind by crashed games are removed automatically.
+The debugger side of Eagle (editors and games) logs to `%LOCALAPPDATA%\Eagle\Debugger\Logs\MonoDebugger_<port>.log`.
 
 ### Options (Tools > Options > Eagle Debug Tools > General)
 | Option | Default | |

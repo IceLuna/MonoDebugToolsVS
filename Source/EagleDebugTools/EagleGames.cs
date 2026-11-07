@@ -5,7 +5,7 @@ using System.IO;
 namespace EagleDebugTools
 {
 	/// <summary>
-	/// Running Eagle games whose scripts can be debugged (games that aren't Release builds).
+	/// Running Eagle games whose scripts can be debugged (games built with the "Script debugging" option).
 	/// Each one publishes `%LOCALAPPDATA%\Eagle\Debugger\Games\Game-ProcessId.yaml` while it runs (ScriptDebuggerInfo in the engine).
 	/// </summary>
 	internal static class EagleGames
