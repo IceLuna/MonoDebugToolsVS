@@ -2,9 +2,9 @@
 <PackageManifest Version="2.0.0" xmlns="http://schemas.microsoft.com/developer/vsx-schema/2011" xmlns:d="http://schemas.microsoft.com/developer/vsx-schema-design/2011">
     <Metadata>
         <!-- Keep Version in sync with Properties\AssemblyInfo.cs -->
-        <Identity Id="EagleEngine.EagleDebugTools" Version="2.0" Language="en-US" Publisher="Eagle Engine" />
+        <Identity Id="EagleEngine.EagleDebugTools" Version="3.0" Language="en-US" Publisher="Eagle Engine" />
         <DisplayName>Eagle Debug Tools</DisplayName>
-        <Description xml:space="preserve">Debug Eagle engine C# scripts in Visual Studio (Debug > Attach to Eagle), plus an "Eagle Entity Script" item template.</Description>
+        <Description xml:space="preserve">Debug Eagle engine C# scripts in Visual Studio: F5 attaches to the Eagle Editor, Debug > Attach to Eagle Game... attaches to a running game, script logs in the Output window, plus an "Eagle Entity Script" item template.</Description>
         <License>LICENSE.txt</License>
         <Icon>Resources\icon.png</Icon>
         <Tags>Eagle; Mono; Debugging</Tags>

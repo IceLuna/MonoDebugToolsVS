@@ -9,9 +9,10 @@ namespace EagleDebugTools
 	public class GeneralOptions : DialogPage
 	{
 		[Category("Debugging")]
-		[DisplayName("Connection Port")]
-		[Description("Port of the engine's Mono debugger agent. Must match the address in ScriptEngine::Init() (default: 2550).")]
-		public int ConnectionPort { get; set; } = 2550;
+		[DisplayName("Build Before Attaching")]
+		[Description("F5 (Attach to Eagle) builds the scripts project first, like Start Debugging does for other projects. " +
+			"The Eagle Editor reloads the rebuilt scripts by itself (while it isn't playing). Default: True")]
+		public bool BuildBeforeAttaching { get; set; } = true;
 
 		[Category("Debugging")]
 		[DisplayName("Allow Property Evaluation")]

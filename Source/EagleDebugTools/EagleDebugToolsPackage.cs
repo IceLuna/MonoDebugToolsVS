@@ -7,7 +7,9 @@ using Task = System.Threading.Tasks.Task;
 namespace EagleDebugTools
 {
 	/// <summary>
-	/// Visual Studio package for Eagle Debug Tools: adds "Debug > Attach to Eagle" and the options page.
+	/// Visual Studio package for Eagle Debug Tools: F5 (Attach to Eagle), Debug > Attach to Eagle Game... and the options page.
+	/// Loads in the background as soon as a solution with a C# project is open, so that F5 is redirected
+	/// and the start button reads "Attach to Eagle" without having to use a menu command first.
 	/// </summary>
 	[PackageRegistration(UseManagedResourcesOnly = true, AllowsBackgroundLoading = true)]
 	[Guid(PackageGuidString)]
@@ -17,6 +19,7 @@ namespace EagleDebugTools
 		expression: "HasCSProject",
 		termNames: new[] { "HasCSProject" },
 		termValues: new[] { "SolutionHasProjectCapability:CSharp" })]
+	[ProvideAutoLoad(UIContextHasCSharpProjectGuid, PackageAutoLoadFlags.BackgroundLoad)]
 	public sealed class EagleDebugToolsPackage : AsyncPackage
 	{
 		/// <summary>Must match guidEagleDebugToolsPackage in EagleDebugToolsPackage.vsct.</summary>
@@ -24,6 +27,8 @@ namespace EagleDebugTools
 
 		/// <summary>Must match guidUIContextHasCSharpProject in EagleDebugToolsPackage.vsct.</summary>
 		private const string UIContextHasCSharpProjectGuid = "66529019-a7f6-4cf0-b694-55066c449bae";
+
+		private StartDebuggingInterceptor m_StartDebuggingInterceptor;
 
 		public static EagleDebugToolsPackage Instance { get; private set; }
 
@@ -37,7 +42,19 @@ namespace EagleDebugTools
 		protected override async Task InitializeAsync(CancellationToken cancellationToken, IProgress<ServiceProgressData> progress)
 		{
 			await JoinableTaskFactory.SwitchToMainThreadAsync(cancellationToken);
-			await AttachDebuggerCommand.InitializeAsync(this);
+			await EagleDebugger.InitializeAsync(this);
+			await AttachToGameCommand.InitializeAsync(this);
+			m_StartDebuggingInterceptor = await StartDebuggingInterceptor.RegisterAsync(this);
+		}
+
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing && m_StartDebuggingInterceptor != null && ThreadHelper.CheckAccess())
+			{
+				m_StartDebuggingInterceptor.Unregister();
+				m_StartDebuggingInterceptor = null;
+			}
+			base.Dispose(disposing);
 		}
 	}
 }

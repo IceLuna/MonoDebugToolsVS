@@ -161,6 +161,11 @@ namespace VSCodeDebug
 			_session.OutputWriter = (isStdErr, text) => {
 				SendOutput(isStdErr ? "stderr" : "stdout", text);
 			};
+
+			// Messages from System.Diagnostics.Debugger.Log() in the debuggee (Eagle's C# Log class sends script logs this way) go to Visual Studio's Output window
+			_session.DebugWriter = (level, category, message) => {
+				SendOutput("stdout", message);
+			};
 		}
 
 		public override void Initialize(Response response, dynamic args)
