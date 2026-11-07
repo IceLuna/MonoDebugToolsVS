@@ -68,7 +68,6 @@ the extension warns if the scripts changed since they were last built, or if the
 
 Each running game picks its own free port and writes it to `%LOCALAPPDATA%\Eagle\Debugger\Games\Game-<ProcessId>.yaml`,
 locked while the game runs. Files left behind by crashed games are removed automatically.
-The debugger side of Eagle (editors and games) logs to `%LOCALAPPDATA%\Eagle\Debugger\Logs\MonoDebugger_<port>.log`.
 
 ### Options (Tools > Options > Eagle Debug Tools > General)
 | Option | Default | |
