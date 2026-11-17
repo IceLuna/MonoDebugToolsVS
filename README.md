@@ -50,8 +50,10 @@ which it keeps locked while the project is open. Visual Studio attaches to the e
 Only that editor matters for the start button: editors with other projects open don't make it read *Attach to Eagle*.
 
 **Script logs and exceptions:** `Eagle.Log()` messages also appear in Visual Studio's **Output** window while attached.
-When a script doesn't handle an exception, the debugger stops on it like on an exception in a regular .NET program:
-at the line that threw it, with the exception shown.
+When an entity callback (`OnCreate`, `OnUpdate`, `OnEvent`, collision and trigger callbacks...) doesn't handle an exception,
+the debugger stops on it like on an exception in a regular .NET program: at the line that threw it, with the exception shown.
+Exceptions from other script code the engine calls (constructors, for example) stop in `Eagle.RuntimeException.OnException`
+instead, after the stack was unwound. So do all of them with engine versions that don't have that support yet.
 
 ### Debugging a game
 Games can be debugged if they were built with the **Script debugging** option: in the Eagle Editor, **File > Build the game**

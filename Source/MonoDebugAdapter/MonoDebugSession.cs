@@ -818,7 +818,7 @@ namespace VSCodeDebug
 			var bt = thread == null ? null : thread.Backtrace;
 			if (bt != null && bt.FrameCount >= 0) {
 
-				// EAGLE: skip [DebuggerHidden] frames and the engine's compiled helpers (engine plumbing), and the engine's exception handler frames
+				// EAGLE: skip [DebuggerHidden] frames (engine plumbing) and the engine's exception handler frames
 				var visibleFrames = GetVisibleFrames(thread);
 				totalFrames = visibleFrames.Count;
 
@@ -1222,8 +1222,6 @@ namespace VSCodeDebug
 		private const string ScriptExceptionFilterMethod = "BreakOnUnhandled";
 		private const string ScriptExceptionHandlerMethod = "OnException";
 		private const int ScriptExceptionMaxDepth = 4; // `Debugger.Break()` frames can be above the handler
-		// Methods the engine compiles to call script constructors and getters (see `RuntimeException.InteropMethodPrefix`)
-		private const string ScriptInteropMethodMarker = "[EagleInterop] ";
 
 		private ExceptionInfo GetScriptException(ThreadInfo thread)
 		{
@@ -1299,13 +1297,8 @@ namespace VSCodeDebug
 				int frameCount = bt == null ? 0 : bt.FrameCount;
 				int first = thread.Id == _scriptExceptionThreadId ? Math.Min(_scriptExceptionHandlerFrames, frameCount) : 0;
 				for (int i = first; i < frameCount; i++) {
-					var frame = bt.GetFrame(i);
-					if (frame.IsDebuggerHidden)
-						continue;
-					string method = frame.SourceLocation.MethodName;
-					if (method != null && method.Contains(ScriptInteropMethodMarker))
-						continue;
-					result.Add(i);
+					if (!bt.GetFrame(i).IsDebuggerHidden)
+						result.Add(i);
 				}
 
 				// Never hide everything
