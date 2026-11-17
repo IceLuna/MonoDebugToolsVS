@@ -46,10 +46,21 @@ namespace VSCodeDebug
 		private Handles<Func<ObjectValue[]>> _variableHandles;
 		private Handles<Mono.Debugging.Client.StackFrame> _frameHandles;
 		private ObjectValue _exception;
+		// EAGLE: index of the frame that shows the "Exception" scope (the frame that threw it)
+		private int _exceptionFrameIndex;
+		// EAGLE: thread that stopped in the engine's exception handler, and how many frames on top of its stack belong to that handler
+		private long _scriptExceptionThreadId = -1;
+		private int _scriptExceptionHandlerFrames;
+		private string _scriptExceptionText;
+		// EAGLE: backtrace indices of the frames shown to VS, per thread. Reset on each stop
+		private readonly Dictionary<long, List<int>> _visibleFrames = new Dictionary<long, List<int>>();
 		private Dictionary<int, Thread> _seenThreads = new Dictionary<int, Thread>();
 		private const int EVALUATION_WAIT_MS = 5000; // EAGLE: upper bound for waiting on a value evaluation
 		private const int DETACH_TIMEOUT_MS = 5000; // EAGLE: upper bound for waiting on Detach() when disconnecting
 		private bool _attachMode = false;
+		// EAGLE: set while attaching waits for the debuggee to publish its port (see WaitForDebuggee). Cleared by Disconnect to cancel the wait
+		private volatile bool _waitingForDebuggee = false;
+		private const int DEBUGGEE_POLL_INTERVAL_MS = 250;
 		private bool _terminated = false;
 		private bool _stderrEOF = true;
 		private bool _stdoutEOF = true;
@@ -84,7 +95,17 @@ namespace VSCodeDebug
 
 			_session.TargetStopped += (sender, e) => {
 				Stopped();
-				SendEvent(CreateStoppedEvent("step", e.Thread));
+				// EAGLE: the engine calls `Debugger.Break()` from `Eagle.RuntimeException` when a script doesn't handle an exception.
+				// Report that as an exception, at the frame that threw it
+				var scriptException = GetScriptException(e.Thread);
+				if (scriptException != null) {
+					_exception = scriptException.Instance;
+					var visible = GetVisibleFrames(e.Thread);
+					_exceptionFrameIndex = visible.Count > 0 ? visible[0] : 0;
+					SendEvent(CreateStoppedEvent("exception", e.Thread, _scriptExceptionText ?? scriptException.Type));
+				} else {
+					SendEvent(CreateStoppedEvent("step", e.Thread));
+				}
 				_resumeEvent.Set();
 			};
 
@@ -437,9 +458,12 @@ namespace VSCodeDebug
 				return;
 			}
 
-			// validate argument 'port'
+			// validate argument 'port'.
+			// EAGLE: or 'debuggerInfoFile' instead: the file in which the debuggee (an Eagle Editor that is still starting)
+			// will publish its port, see WaitForDebuggee
 			var port = getInt(args, "port", -1);
-			if (port == -1) {
+			string debuggerInfoFile = getString(args, "debuggerInfoFile");
+			if (port == -1 && debuggerInfoFile == null) {
 				SendErrorResponse(response, 3008, "Property 'port' is missing.");
 				return;
 			}
@@ -450,13 +474,104 @@ namespace VSCodeDebug
 				return;
 			}
 
+			if (port == -1) {
+				// Visual Studio waits for this response, so reply now and connect once the port is known.
+				// Visual Studio shows the session as running meanwhile: Stop Debugging cancels the wait
+				SendResponse(response);
+				StartWaitingForDebuggee(address, debuggerInfoFile, getInt(args, "processId", 0), getString(args, "debuggeeName", "the debuggee"));
+				return;
+			}
+
 			Connect(address, port);
 
 			SendResponse(response);
 		}
 
+		// EAGLE: waits on a background thread until the file is published by a running process, then connects to its port.
+		// The file is the one Eagle's ScriptDebuggerInfo writes (see DebuggerInfoFile, shared with the extension).
+		// The wait ends without attaching if Disconnect cancels it, or if the process `processId` (when given) exits first
+		private void StartWaitingForDebuggee(IPAddress address, string debuggerInfoFile, int processId, string debuggeeName)
+		{
+			System.Diagnostics.Process process = null;
+			if (processId > 0) {
+				try {
+					// Kept open, so that HasExited stays about this process even if its id gets reused
+					process = System.Diagnostics.Process.GetProcessById(processId);
+				}
+				catch (ArgumentException) {
+					SendOutput("stderr", Capitalize(debuggeeName) + " isn't running anymore.");
+					Terminate("debuggee exited");
+					return;
+				}
+				catch (InvalidOperationException) {
+					// Can't watch it. Then only Stop Debugging ends the wait
+				}
+			}
+
+			_waitingForDebuggee = true;
+			SendOutput("console", "Waiting for " + debuggeeName + " to open the project, then attaching." + Environment.NewLine +
+				"Stop Debugging (Shift+F5) stops waiting; the editor keeps running.");
+
+			var thread = new System.Threading.Thread(() => WaitForDebuggee(address, debuggerInfoFile, process, debuggeeName)) {
+				IsBackground = true,
+				Name = "Wait for debuggee"
+			};
+			thread.Start();
+		}
+
+		private void WaitForDebuggee(IPAddress address, string debuggerInfoFile, System.Diagnostics.Process process, string debuggeeName)
+		{
+			try {
+				while (_waitingForDebuggee) {
+					var info = EagleDebugTools.DebuggerInfoFile.TryRead(debuggerInfoFile, deleteIfStale: false);
+					if (info != null) {
+						lock (_lock) {
+							// Disconnect clears _session under this lock: after it, there's nothing to connect
+							if (!_waitingForDebuggee || _session == null)
+								return;
+							_waitingForDebuggee = false;
+							Connect(address, info.Port);
+						}
+						SendOutput("console", Capitalize(debuggeeName) + " has opened the project. Attached.");
+						return;
+					}
+
+					if (process != null && HasExited(process)) {
+						_waitingForDebuggee = false;
+						SendOutput("stderr", Capitalize(debuggeeName) + " exited before opening the project.");
+						Terminate("debuggee exited");
+						return;
+					}
+
+					System.Threading.Thread.Sleep(DEBUGGEE_POLL_INTERVAL_MS);
+				}
+			}
+			finally {
+				if (process != null)
+					process.Dispose();
+			}
+		}
+
+		private static bool HasExited(System.Diagnostics.Process process)
+		{
+			try {
+				return process.HasExited;
+			}
+			catch (Exception) {
+				return false; // Can't tell (no access): keep waiting
+			}
+		}
+
+		private static string Capitalize(string text)
+		{
+			return string.IsNullOrEmpty(text) ? text : char.ToUpperInvariant(text[0]) + text.Substring(1);
+		}
+
 		public override void Disconnect(Response response, dynamic args)
 		{
+			// EAGLE: stops waiting for the debuggee, if attaching still waits (see WaitForDebuggee)
+			_waitingForDebuggee = false;
+
 			if (_attachMode) {
 
 				// EAGLE: detach properly so the engine can be attached again.
@@ -478,6 +593,23 @@ namespace VSCodeDebug
 				}
 
 				if (session != null && session.IsConnected) {
+					// EAGLE: resume before detaching. While the VM is suspended, the Mono debugger agent keeps every object
+					// it reports (the thread, the exception, values shown in VS) alive in a GC root table, and only VM_RESUME
+					// clears it; VM_DISPOSE resumes the VM but leaves the table as is. Those objects then outlive the script
+					// AppDomain, and after recompiling scripts (domain unload) the engine crashes or freezes inside script code.
+					// Breakpoints are removed first, at the protocol level (synchronously), so that nothing stops the VM again
+					// between the resume and the detach.
+					try {
+						var vm = session.VirtualMachine;
+						if (vm != null) {
+							vm.ClearAllBreakpoints();
+							vm.Resume();
+						}
+					}
+					catch (Exception) {
+						// Not suspended (VMNotSuspendedException), or the connection is already gone: nothing to release
+					}
+
 					try {
 						session.Detach();
 						var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -559,6 +691,11 @@ namespace VSCodeDebug
 		public override void Pause(Response response, dynamic args)
 		{
 			SendResponse(response);
+			if (_waitingForDebuggee) {
+				// EAGLE: nothing to pause yet
+				SendOutput("console", "Can't break yet: still waiting for the project to be opened.");
+				return;
+			}
 			PauseDebugger();
 		}
 
@@ -657,7 +794,11 @@ namespace VSCodeDebug
 
 		public override void StackTrace(Response response, dynamic args)
 		{
-			int maxLevels = getInt(args, "levels", 10);
+			// EAGLE: honor paging. `levels` 0 (or missing) means all frames
+			int startFrame = Math.Max(0, getInt(args, "startFrame", 0));
+			int maxLevels = getInt(args, "levels", 0);
+			if (maxLevels <= 0)
+				maxLevels = int.MaxValue;
 			int threadReference = getInt(args, "threadId", 0);
 
 			WaitForSuspend();
@@ -674,14 +815,17 @@ namespace VSCodeDebug
 			var stackFrames = new List<StackFrame>();
 			int totalFrames = 0;
 
-			var bt = thread.Backtrace;
+			var bt = thread == null ? null : thread.Backtrace;
 			if (bt != null && bt.FrameCount >= 0) {
 
-				totalFrames = bt.FrameCount;
+				// EAGLE: skip [DebuggerHidden] frames and the engine's compiled helpers (engine plumbing), and the engine's exception handler frames
+				var visibleFrames = GetVisibleFrames(thread);
+				totalFrames = visibleFrames.Count;
 
-				for (var i = 0; i < Math.Min(totalFrames, maxLevels); i++) {
+				int endFrame = (int)Math.Min((long)startFrame + maxLevels, totalFrames);
+				for (var v = startFrame; v < endFrame; v++) {
 
-					var frame = bt.GetFrame(i);
+					var frame = bt.GetFrame(visibleFrames[v]);
 
 					string path = frame.SourceLocation.FileName;
 
@@ -720,7 +864,7 @@ namespace VSCodeDebug
 
 			var scopes = new List<Scope>();
 
-			if (frame.Index == 0 && _exception != null) {
+			if (frame.Index == _exceptionFrameIndex && _exception != null) {
 				var exceptionValues = new ObjectValue[] { _exception };
 				scopes.Add(new Scope("Exception", _variableHandles.Create(() => exceptionValues)));
 			}
@@ -970,6 +1114,13 @@ namespace VSCodeDebug
 		private void Stopped()
 		{
 			_exception = null;
+			_exceptionFrameIndex = 0;
+			_scriptExceptionThreadId = -1;
+			_scriptExceptionHandlerFrames = 0;
+			_scriptExceptionText = null;
+			lock (_visibleFrames) {
+				_visibleFrames.Clear();
+			}
 			_variableHandles.Reset();
 			_frameHandles.Reset();
 		}
@@ -1060,6 +1211,112 @@ namespace VSCodeDebug
 				return _activeFrame = bt.GetFrame(0);
 
 			return null;
+		}
+
+		// EAGLE: the engine (Eagle-Scripts/Source/RuntimeException.cs) stops the debugger for exceptions that scripts don't handle from:
+		//  - `BreakOnUnhandled`: an exception filter. The stack still has the frames that threw the exception (Mono builds the call stack
+		//    from the throw site while a filter runs), so those frames are shown and the handler's own frames are skipped.
+		//  - `OnException`: called after the stack was unwound, for exceptions that didn't pass through that filter. Shown as is.
+		// Both have the exception in their `exception` parameter.
+		private const string ScriptExceptionType = "Eagle.RuntimeException";
+		private const string ScriptExceptionFilterMethod = "BreakOnUnhandled";
+		private const string ScriptExceptionHandlerMethod = "OnException";
+		private const int ScriptExceptionMaxDepth = 4; // `Debugger.Break()` frames can be above the handler
+		// Methods the engine compiles to call script constructors and getters (see `RuntimeException.InteropMethodPrefix`)
+		private const string ScriptInteropMethodMarker = "[EagleInterop] ";
+
+		private ExceptionInfo GetScriptException(ThreadInfo thread)
+		{
+			try {
+				var bt = thread == null ? null : thread.Backtrace;
+				if (bt == null)
+					return null;
+
+				int count = Math.Min(bt.FrameCount, ScriptExceptionMaxDepth);
+				for (int i = 0; i < count; i++) {
+					var frame = bt.GetFrame(i);
+					if (frame.FullTypeName != ScriptExceptionType)
+						continue;
+
+					string method = frame.SourceLocation.MethodName ?? string.Empty;
+					bool bFilter = method.EndsWith("." + ScriptExceptionFilterMethod);
+					if (!bFilter && !method.EndsWith("." + ScriptExceptionHandlerMethod))
+						continue;
+
+					var exception = frame.GetParameters().FirstOrDefault(p => p.Name == "exception");
+					if (exception == null || exception.IsNull)
+						return null;
+
+					_scriptExceptionThreadId = thread.Id;
+					_scriptExceptionHandlerFrames = bFilter ? i + 1 : i; // Keep `OnException` itself: there's nothing below it to show
+					var info = new ExceptionInfo(exception);
+					_scriptExceptionText = GetExceptionText(frame, info);
+					return info;
+				}
+			}
+			catch (Exception) {
+				// Not being able to inspect the frames just means it's reported as a normal stop
+			}
+			return null;
+		}
+
+		// "Type: message" for the stop notification. `Exception.Message` is a property, and calling it is disabled
+		// (see `allowPropertyEvaluation`), so this reads the field behind it. That field is empty for most exceptions
+		// thrown by the runtime (like NullReferenceException), which then show just their type
+		private string GetExceptionText(Mono.Debugging.Client.StackFrame frame, ExceptionInfo exception)
+		{
+			string type = exception.Type;
+			try {
+				var options = _debuggerSessionOptions.EvaluationOptions.Clone();
+				options.AllowTargetInvoke = false;
+				options.AllowMethodEvaluation = false;
+				options.AllowToStringCalls = false;
+				var value = frame.GetExpressionValue("((System.Exception)exception)._message", options);
+				if (value != null && !value.IsNull && !value.IsError && !value.IsEvaluating && !string.IsNullOrEmpty(value.Value)) {
+					string message = value.Value;
+					if (message.Length >= 2 && message[0] == '"' && message[message.Length - 1] == '"')
+						message = message.Substring(1, message.Length - 2);
+					if (message.Length > 0)
+						return type + ": " + message;
+				}
+			}
+			catch (Exception) {
+				// Just the type then
+			}
+			return type;
+		}
+
+		// Backtrace indices of the frames to show for `thread`
+		private List<int> GetVisibleFrames(ThreadInfo thread)
+		{
+			lock (_visibleFrames) {
+				List<int> result;
+				if (_visibleFrames.TryGetValue(thread.Id, out result))
+					return result;
+
+				result = new List<int>();
+				var bt = thread.Backtrace;
+				int frameCount = bt == null ? 0 : bt.FrameCount;
+				int first = thread.Id == _scriptExceptionThreadId ? Math.Min(_scriptExceptionHandlerFrames, frameCount) : 0;
+				for (int i = first; i < frameCount; i++) {
+					var frame = bt.GetFrame(i);
+					if (frame.IsDebuggerHidden)
+						continue;
+					string method = frame.SourceLocation.MethodName;
+					if (method != null && method.Contains(ScriptInteropMethodMarker))
+						continue;
+					result.Add(i);
+				}
+
+				// Never hide everything
+				if (result.Count == 0) {
+					for (int i = 0; i < frameCount; i++)
+						result.Add(i);
+				}
+
+				_visibleFrames[thread.Id] = result;
+				return result;
+			}
 		}
 
 		private ExceptionInfo DebuggerActiveException() {

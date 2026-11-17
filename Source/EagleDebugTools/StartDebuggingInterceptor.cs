@@ -11,7 +11,8 @@ namespace EagleDebugTools
 	/// <summary>
 	/// Makes Debug > Start Debugging (F5) and the toolbar's start button attach to the Eagle Editor
 	/// when the startup project is an Eagle scripts project and Visual Studio isn't debugging yet.
-	/// Both then read "Attach to Eagle". In any other case the commands are left to Visual Studio
+	/// Both then read "Attach to Eagle", or "Start Eagle and Attach" if no editor has the project open (F5 then starts one,
+	/// see EagleDebugger.GetStartCommandText). In any other case the commands are left to Visual Studio
 	/// (for example F5 still means Continue while debugging, and other projects start as usual).
 	///
 	/// The toolbar's start button isn't Debug.Start itself: it's the "debug target" menu controller, which shows
@@ -21,8 +22,6 @@ namespace EagleDebugTools
 	/// </summary>
 	internal sealed class StartDebuggingInterceptor : IOleCommandTarget
 	{
-		private const string ButtonText = "Attach to Eagle";
-
 		// Returned for commands that aren't handled here, so that they go to the next command target
 		private const int OLECMDERR_E_NOTSUPPORTED = unchecked((int)0x80040100);
 		private const uint OLECMDTEXTF_NAME = 1;
@@ -70,12 +69,12 @@ namespace EagleDebugTools
 				return OLECMDERR_E_NOTSUPPORTED;
 
 			ThreadHelper.ThrowIfNotOnUIThread();
-			if (!ShouldHandle(out _, out _))
+			if (!ShouldHandle(out EagleProject project, out _))
 				return OLECMDERR_E_NOTSUPPORTED;
 
 			prgCmds[0].cmdf = (uint)(OLECMDF.OLECMDF_SUPPORTED | OLECMDF.OLECMDF_ENABLED);
 			if (pCmdText != IntPtr.Zero)
-				SetCommandText(pCmdText, ButtonText);
+				SetCommandText(pCmdText, EagleDebugger.Instance.GetStartCommandText(project));
 			return VSConstants.S_OK;
 		}
 

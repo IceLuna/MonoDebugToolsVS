@@ -5,9 +5,10 @@ using Microsoft.VisualStudio.Shell.Interop;
 namespace EagleDebugTools
 {
 	/// <summary>
-	/// Info bar shown at the top of Visual Studio when attaching fails because no Eagle Editor has the project open.
-	/// Its "Run Eagle Editor" button starts the editor with the project. If a game of the project is running,
-	/// "Attach to Running Game" attaches to it instead.
+	/// Info bar shown at the top of Visual Studio when F5 is pressed while no Eagle Editor has the project open
+	/// but a game of the project is running, so F5 could mean either:
+	/// "Start Eagle and Attach" starts the editor with the project and attaches to it (see EagleDebugger.StartEditorAndAttach),
+	/// "Attach to Running Game" attaches to the game instead.
 	/// </summary>
 	internal sealed class EditorNotRunningInfoBar : IVsInfoBarUIEvents
 	{
@@ -50,19 +51,33 @@ namespace EagleDebugTools
 			Close();
 			m_Project = project;
 
-			string message = "Eagle Editor isn't running with this project (" + project.Name + ").";
+			bool bGameRunning = EagleDebugger.IsGameRunning(project);
+			string message = "No Eagle Editor has this project (" + project.Name + ") open" + (bGameRunning ? ", but a game of it is running." : ".");
 			if (m_Factory == null || m_Host == null)
 			{
 				// No info bar support: fall back to a message box
-				int answer = VsShellUtilities.ShowMessageBox(m_Package, message + " Start it?", "Eagle Debug Tools",
-					OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-				if (answer == (int)Microsoft.VisualStudio.VSConstants.MessageBoxResult.IDYES)
-					RunEditor(project);
+				if (!bGameRunning)
+				{
+					int answer = VsShellUtilities.ShowMessageBox(m_Package, message + " Start it and attach?", "Eagle Debug Tools",
+						OLEMSGICON.OLEMSGICON_INFO, OLEMSGBUTTON.OLEMSGBUTTON_YESNO, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+					if (answer == (int)Microsoft.VisualStudio.VSConstants.MessageBoxResult.IDYES)
+						RunEditor(project);
+				}
+				else
+				{
+					int answer = VsShellUtilities.ShowMessageBox(m_Package,
+						message + System.Environment.NewLine + System.Environment.NewLine + "Yes: start the Eagle Editor and attach to it" + System.Environment.NewLine + "No: attach to the running game",
+						"Eagle Debug Tools", OLEMSGICON.OLEMSGICON_QUERY, OLEMSGBUTTON.OLEMSGBUTTON_YESNOCANCEL, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
+					if (answer == (int)Microsoft.VisualStudio.VSConstants.MessageBoxResult.IDYES)
+						RunEditor(project);
+					else if (answer == (int)Microsoft.VisualStudio.VSConstants.MessageBoxResult.IDNO)
+						EagleDebugger.Instance?.AttachToGame();
+				}
 				return;
 			}
 
-			var actions = new System.Collections.Generic.List<InfoBarButton> { new InfoBarButton("Run Eagle Editor", RunEditorAction) };
-			if (EagleDebugger.IsGameRunning(project))
+			var actions = new System.Collections.Generic.List<InfoBarButton> { new InfoBarButton("Start Eagle and Attach", RunEditorAction) };
+			if (bGameRunning)
 				actions.Add(new InfoBarButton("Attach to Running Game", AttachToGameAction));
 
 			var model = new InfoBarModel(
@@ -116,19 +131,11 @@ namespace EagleDebugTools
 			}
 		}
 
+		// Starts the editor with the project and attaches once it has opened it (errors are shown there)
 		private void RunEditor(EagleProject project)
 		{
 			ThreadHelper.ThrowIfNotOnUIThread();
-
-			string error = EagleEditorLauncher.Launch(project);
-			if (error != null)
-			{
-				VsShellUtilities.ShowMessageBox(m_Package, error, "Couldn't start the Eagle Editor",
-					OLEMSGICON.OLEMSGICON_CRITICAL, OLEMSGBUTTON.OLEMSGBUTTON_OK, OLEMSGDEFBUTTON.OLEMSGDEFBUTTON_FIRST);
-				return;
-			}
-
-			EagleDebugger.Instance?.SetStatus("Starting the Eagle Editor with " + project.Name + ". Press F5 to attach once the project is open.");
+			EagleDebugger.Instance?.StartEditorAndAttach(project);
 		}
 	}
 }

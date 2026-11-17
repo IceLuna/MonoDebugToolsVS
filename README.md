@@ -4,7 +4,7 @@ A Visual Studio 2022 extension for debugging Eagle Engine C# scripts: set breakp
 in your game's scripts while the Eagle Editor or a game build is running.
 
 It adds:
-* **F5 attaches to the Eagle Editor** when the startup project is an Eagle scripts project
+* **F5 attaches to the Eagle Editor** when the startup project is an Eagle scripts project (and starts the editor first if needed)
 * **Debug > Attach to Eagle Game...**, which attaches to a running game (games built with the **Script debugging** option)
 * Script logs (`Eagle.Log()`) in Visual Studio's **Output** window, and a stop in the debugger when a script throws an exception
 * **Add > New Item > Eagle Entity Script**, an item template for a new `Eagle.Entity` script
@@ -34,8 +34,12 @@ Run `Scripts\Setup.bat` again whenever `premake5.lua` changes. The `.sln` is gen
 1. Open the project's C# solution in Visual Studio.
 2. Press **F5** (*Attach to Eagle*). It builds the scripts and attaches to the Eagle Editor that has the project open;
    the editor reloads the rebuilt scripts by itself. Then set breakpoints and play.
-   * If no editor has the project open, an info bar appears instead: **Run Eagle Editor** starts the editor with the project
-     (found through the `.egproj` file association, see the engine's `Win-SetupFileAssociation.bat`). Press F5 again once it has opened the project.
+   * If no editor has the project open, the button reads **Start Eagle and Attach**: F5 builds the scripts, starts the editor
+     with the project (found through the `.egproj` file association, see the engine's `Win-SetupFileAssociation.bat`),
+     and attaches as soon as the editor has opened the project. Visual Studio is already debugging while it waits
+     (the Output window says so), and breakpoints can be set meanwhile. **Stop Debugging** (Shift+F5) stops waiting;
+     the editor keeps running, and the next F5 attaches to it instead of starting another one.
+   * The waiting ends by itself if the editor is closed before it has opened the project.
 3. **Debug > Stop Debugging** detaches and leaves the editor running, so you can attach again later.
 
 F5 attaches when the startup project is the Eagle scripts project: a project in a folder with a `.egproj` file (or below it)
@@ -43,9 +47,11 @@ whose assembly name is the Eagle project's name. For other startup projects F5 w
 
 **Several editors:** each editor picks its own free port and writes it to `<Project>/Cache/Scripts/Debugger.yaml`,
 which it keeps locked while the project is open. Visual Studio attaches to the editor that has the solution's project open.
+Only that editor matters for the start button: editors with other projects open don't make it read *Attach to Eagle*.
 
 **Script logs and exceptions:** `Eagle.Log()` messages also appear in Visual Studio's **Output** window while attached.
-When a script throws an exception, the debugger stops in `Eagle.RuntimeException.OnException`.
+When a script doesn't handle an exception, the debugger stops on it like on an exception in a regular .NET program:
+at the line that threw it, with the exception shown.
 
 ### Debugging a game
 Games can be debugged if they were built with the **Script debugging** option: in the Eagle Editor, **File > Build the game**
@@ -55,8 +61,8 @@ For more accurate stepping, build the scripts in the Debug configuration before 
 1. Start the game.
 2. Choose **Debug > Attach to Eagle Game...**. If exactly one game of the solution's project is running, it attaches to it;
    otherwise it lists the running games (the solution's project first) to pick from.
-   * If you press F5 while no editor has the project open but a game of the project is running, the info bar also offers
-     **Attach to Running Game**.
+   * If you press F5 while no editor has the project open but a game of the project is running, an info bar asks which one you mean:
+     **Start Eagle and Attach** or **Attach to Running Game**.
 3. **Debug > Stop Debugging** detaches and leaves the game running.
 
 A game starts its first scene right away, so startup code (for example `OnCreate`) has usually run before you can attach.

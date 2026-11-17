@@ -34,9 +34,10 @@ namespace EagleDebugTools
 			return File.Exists(path) ? path : null;
 		}
 
-		/// <summary>Starts the editor with `project`. Returns an error message, or null on success</summary>
-		public static string Launch(EagleProject project)
+		/// <summary>Starts the editor with `project`. Returns an error message, or null on success (then `process` is the editor's process)</summary>
+		public static string Launch(EagleProject project, out Process process)
 		{
+			process = null;
 			string editorPath = FindEditorExecutable();
 			if (editorPath == null)
 			{
@@ -46,7 +47,7 @@ namespace EagleDebugTools
 
 			try
 			{
-				Process.Start(new ProcessStartInfo(editorPath)
+				process = Process.Start(new ProcessStartInfo(editorPath)
 				{
 					Arguments = "--project \"" + project.ProjectFilePath + "\"",
 					WorkingDirectory = Path.GetDirectoryName(editorPath),

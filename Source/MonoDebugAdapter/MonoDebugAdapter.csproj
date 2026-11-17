@@ -26,6 +26,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Reads the files in which Eagle Editors and games publish their debugger port (shared with the extension) -->
+    <Compile Include="..\EagleDebugTools\DebuggerInfoFile.cs" Link="DebuggerInfoFile.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugger.Soft\Mono.Debugger.Soft.csproj" />
     <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugging\Mono.Debugging.csproj" />
     <ProjectReference Include="..\..\External\debugger-libs\Mono.Debugging.Soft\Mono.Debugging.Soft.csproj" />
